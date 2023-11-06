@@ -864,7 +864,7 @@ class SsoSaml2Core(object):
         ):
             self._sso_renew_watchdog_timer.stop()
             self.update_session_from_browser()
-            if self._session_renewal_active:
+            if not self._session_renewal_active:
                 self.start_sso_renewal()
 
             self._dialog.accept()
