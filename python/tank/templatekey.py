@@ -19,6 +19,7 @@ from .errors import TankError
 from .util import sgre as re
 from tank_vendor import six
 from tank_vendor.six.moves import zip
+from tank_vendor.version.version import Version, VersionError
 
 
 class TemplateKey(object):
@@ -1236,6 +1237,74 @@ class SequenceKey(IntegerKey):
                 raise TankError(error_msg)
 
         return frame_spec
+    
+
+class SemanticVersionKey(StringKey):
+
+    def __init__(
+        self,
+        name,
+        separator=None
+    ):
+        """
+        :param str name: Name by which the key will be referred.
+        :param str separator: 
+        
+        """
+        self._separator = separator
+        
+        super(SemanticVersionKey, self).__init__(
+            name,
+        )
+
+    def validate(self, value):
+        if isinstance(value, tuple) and len(value) == 3:
+            value = self._separator.join([str(v) for v in value])
+
+        if isinstance(value, str):
+            try:
+                Version(value)
+                return True
+            except VersionError as e :
+                # Bad value, report the error to the client code.
+                self._last_error = "Invalid string: %s" % str(e)
+                return False
+        elif isinstance(value, Version):
+            return True
+        else: 
+            self._last_error = (
+                "Invalid type: expecting string or tuple, not %s"
+                % value.__class__.__name__
+            )
+            return False
+
+    def _as_string(self, value):
+        if isinstance(value, tuple) and len(value) == 3:
+            return self._str_from_tuple(value)
+        elif isinstance(value, Version):
+            return str(value)
+        else:
+            return value if isinstance(value, six.string_types) else str(value)
+
+    def value_from_tuple(self, tuple_value):
+        """
+        Validates and translates a string into an appropriate value for this key.
+
+        :param str_value: The string to translate.
+        :returns: The translated value.
+        """
+        if self.validate(tuple_value):
+            str_value = self._str_from_tuple(tuple_value)
+            value = self._as_value(str_value)
+        else:
+            raise TankError(self._last_error)
+        return value
+    
+    def _str_from_tuple(self, tuple_value):
+        return self._separator.join([str(v) for v in tuple_value])
+
+    def _as_value(self, str_value):
+        return Version(str_value)
 
 
 def make_keys(data):
@@ -1253,6 +1322,7 @@ def make_keys(data):
         "int": IntegerKey,
         "sequence": SequenceKey,
         "timestamp": TimestampKey,
+        "semantic_version": SemanticVersionKey,
     }
     for initial_key_name, key_data in data.items():
         # We need to remove data before passing in as arguments, so copy it.
