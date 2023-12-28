@@ -1244,7 +1244,7 @@ class SemanticVersionKey(StringKey):
     def __init__(
         self,
         name,
-        separator=None
+        separator="."
     ):
         """
         :param str name: Name by which the key will be referred.
